@@ -62,19 +62,22 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: '桌面记事本 ${{ github.ref_name }}'
           releaseBody: |
-            ## 桌面记事本 ${{ github.ref_name }}
+            ## Desktop Notepad ${{ github.ref_name }}
 
             ### ✨ 新增功能
             - 🔒 口令锁屏：防止他人窥视，SHA-256 加密存储
             - ☁️ WebDAV 同步：跨设备数据同步，支持备份/恢复
             - 📊 年度热力图：GitHub 风格，一眼看到全年产出
             - 💻 Mac 风格代码块：红黄绿圆点 + 语言标签
-            - 🎨 毛玻璃效果：仪表盘欢迎卡片视觉优化
+            - 🎨 毛玻璃蘑菇卡片风格：backdrop-filter 模糊 + 饱和增强
+            - 🌙 暗色模式：Apple 风格深色主题
 
-            ### 🐛 问题修复
+            ### 🛠 改进
+            - 安装路径改为英文 Desktop Notepad
+            - 主色调升级为靛紫色 (#6366f1)
+            - 按钮改为圆角胶囊形状
+            - 卡片全面升级毛玻璃效果
             - 移除登录系统，自动创建默认用户
-            - 统一 UI 设计系统，修复暗色模式
-            - CSP 白名单新增 hitokoto.cn 和 tavily.com
 
             ### 📦 下载
             | 平台 | 文件 |
