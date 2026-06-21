@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAppStore } from '../../stores'
-import { exportAllData, importAllData } from '../../utils/db'
+import { exportAllData, importAllData, getSetting, saveSetting } from '../../utils/db'
 import { getProviderConfig, saveProviderConfig, PROVIDER_NAMES, type AIProvider } from '../../utils/ai'
+import { testConnection, uploadData, downloadData, listBackups, generateBackupFilename, type WebDAVConfig } from '../../utils/webdav'
 
 const appStore = useAppStore()
 
@@ -33,6 +34,33 @@ const showAvatarPicker = ref(false)
 
 // About
 const appVersion = ref('0.3.0')
+
+// Lock screen
+const lockEnabled = ref(false)
+const showChangeLock = ref(false)
+const newLockPassword = ref('')
+const confirmLockPassword = ref('')
+const lockError = ref('')
+
+// WebDAV
+const webdavConfig = ref<WebDAVConfig>({
+  server: '',
+  username: '',
+  password: '',
+  path: '/desktop-notepad',
+})
+const webdavStatus = ref('')
+const webdavLoading = ref(false)
+const webdavBackups = ref<string[]>([])
+const showWebdavPassword = ref(false)
+
+async function hashPassword(pwd: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(pwd + 'desktop-notepad-lock-salt')
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
 
 function saveWorkTime() {
   appStore.updateProfile({ work_start_time: workStart.value, work_end_time: workEnd.value })
@@ -100,6 +128,87 @@ async function handleImport() {
   input.click()
 }
 
+// Lock screen functions
+async function handleSetLock() {
+  lockError.value = ''
+  if (newLockPassword.value.length < 4) {
+    lockError.value = '口令至少需要 4 位'
+    return
+  }
+  if (newLockPassword.value !== confirmLockPassword.value) {
+    lockError.value = '两次输入的口令不一致'
+    return
+  }
+  const hash = await hashPassword(newLockPassword.value)
+  await saveSetting('lock_password', hash)
+  appStore.setLock(hash)
+  lockEnabled.value = true
+  showChangeLock.value = false
+  newLockPassword.value = ''
+  confirmLockPassword.value = ''
+}
+
+async function handleClearLock() {
+  await saveSetting('lock_password', '')
+  appStore.clearLock()
+  lockEnabled.value = false
+  showChangeLock.value = false
+}
+
+// WebDAV functions
+async function handleTestWebdav() {
+  webdavLoading.value = true
+  webdavStatus.value = '测试中...'
+  const result = await testConnection(webdavConfig.value)
+  webdavStatus.value = result.message
+  webdavLoading.value = false
+
+  if (result.success) {
+    await saveSetting('webdav_config', JSON.stringify(webdavConfig.value))
+    const backups = await listBackups(webdavConfig.value)
+    webdavBackups.value = backups
+  }
+}
+
+async function handleWebdavSync() {
+  webdavLoading.value = true
+  webdavStatus.value = '同步中...'
+  try {
+    const userId = appStore.currentUser?.id || 1
+    const data = await exportAllData(userId)
+    const filename = generateBackupFilename()
+    const success = await uploadData(webdavConfig.value, data, filename)
+    if (success) {
+      webdavStatus.value = `✅ 同步成功: ${filename}`
+      const backups = await listBackups(webdavConfig.value)
+      webdavBackups.value = backups
+    } else {
+      webdavStatus.value = '❌ 同步失败'
+    }
+  } catch (err) {
+    webdavStatus.value = `❌ 同步错误: ${err instanceof Error ? err.message : String(err)}`
+  }
+  webdavLoading.value = false
+}
+
+async function handleWebdavRestore(filename: string) {
+  webdavLoading.value = true
+  webdavStatus.value = '恢复中...'
+  try {
+    const data = await downloadData(webdavConfig.value, filename)
+    if (data) {
+      const userId = appStore.currentUser?.id || 1
+      const result = await importAllData(userId, data)
+      webdavStatus.value = `✅ 恢复成功：${result.tasks} 任务，${result.notes} 笔记，${result.sessions} 会话，${result.cards} 卡片`
+    } else {
+      webdavStatus.value = '❌ 下载失败'
+    }
+  } catch (err) {
+    webdavStatus.value = `❌ 恢复错误: ${err instanceof Error ? err.message : String(err)}`
+  }
+  webdavLoading.value = false
+}
+
 // Hitokoto categories
 const hitokotoCategories = [
   { key: '', label: '随机' },
@@ -116,6 +225,18 @@ const hitokotoCategories = [
   { key: 'k', label: '哲学' },
   { key: 'l', label: '抖机灵' },
 ]
+
+onMounted(async () => {
+  const lockHash = await getSetting('lock_password', '')
+  lockEnabled.value = !!lockHash
+
+  const savedConfig = await getSetting('webdav_config', '')
+  if (savedConfig) {
+    try {
+      webdavConfig.value = JSON.parse(savedConfig)
+    } catch {}
+  }
+})
 </script>
 
 <template>
@@ -215,10 +336,88 @@ const hitokotoCategories = [
       </div>
     </div>
 
+    <!-- Lock Screen -->
+    <div class="section">
+      <h2>🔒 口令锁屏</h2>
+      <p class="section-desc">设置口令后，每次打开应用需要输入口令才能使用。</p>
+
+      <div v-if="!lockEnabled">
+        <button class="btn primary" @click="showChangeLock = true">设置口令</button>
+      </div>
+      <div v-else>
+        <div class="lock-status">
+          <span class="status-badge">已启用</span>
+          <div class="lock-actions">
+            <button class="btn" @click="showChangeLock = true">修改口令</button>
+            <button class="btn danger" @click="handleClearLock">取消口令</button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showChangeLock" class="lock-form">
+        <div class="form-group">
+          <label>新口令</label>
+          <input v-model="newLockPassword" type="password" placeholder="输入口令（至少4位）" />
+        </div>
+        <div class="form-group">
+          <label>确认口令</label>
+          <input v-model="confirmLockPassword" type="password" placeholder="再次输入口令" />
+        </div>
+        <p v-if="lockError" class="error">{{ lockError }}</p>
+        <div class="modal-actions">
+          <button class="btn" @click="showChangeLock = false; newLockPassword = ''; confirmLockPassword = ''; lockError = ''">取消</button>
+          <button class="btn primary" @click="handleSetLock">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WebDAV Sync -->
+    <div class="section">
+      <h2>☁️ WebDAV 同步</h2>
+      <p class="section-desc">配置 WebDAV 服务器，实现跨设备数据同步。</p>
+
+      <div class="form-group">
+        <label>服务器地址</label>
+        <input v-model="webdavConfig.server" placeholder="https://dav.example.com" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>用户名</label>
+          <input v-model="webdavConfig.username" placeholder="username" />
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <div class="key-input">
+            <input v-model="webdavConfig.password" :type="showWebdavPassword ? 'text' : 'password'" placeholder="password" />
+            <button class="toggle-key" @click="showWebdavPassword = !showWebdavPassword">{{ showWebdavPassword ? '🙈' : '👁️' }}</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>目录路径</label>
+        <input v-model="webdavConfig.path" placeholder="/desktop-notepad" />
+      </div>
+
+      <div class="webdav-actions">
+        <button class="btn" @click="handleTestWebdav" :disabled="webdavLoading || !webdavConfig.server">测试连接</button>
+        <button class="btn primary" @click="handleWebdavSync" :disabled="webdavLoading || !webdavConfig.server">立即同步</button>
+      </div>
+
+      <p v-if="webdavStatus" class="webdav-status">{{ webdavStatus }}</p>
+
+      <div v-if="webdavBackups.length > 0" class="webdav-backups">
+        <h4>云端备份</h4>
+        <div v-for="backup in webdavBackups" :key="backup" class="backup-item">
+          <span class="backup-name">{{ backup }}</span>
+          <button class="btn-sm" @click="handleWebdavRestore(backup)" :disabled="webdavLoading">恢复</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Backup -->
     <div class="section">
       <h2>💾 数据备份</h2>
-      <p class="section-desc">导出所有数据为 JSON 文件，或从备份恢复。支持后续 WebDAV 同步。</p>
+      <p class="section-desc">导出所有数据为 JSON 文件，或从备份恢复。</p>
       <div class="backup-actions">
         <button class="btn primary" @click="handleExport">📤 导出数据</button>
         <button class="btn" @click="handleImport">📥 导入数据</button>
@@ -301,6 +500,80 @@ const hitokotoCategories = [
 }
 .about-row:last-child { border-bottom: none; }
 .about-row span:first-child { color: var(--text-secondary); }
+
+/* Lock screen */
+.lock-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-badge {
+  background: var(--accent);
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+}
+
+.lock-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lock-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+/* WebDAV */
+.webdav-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.webdav-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.webdav-backups {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.webdav-backups h4 {
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.backup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.backup-item:last-child {
+  border-bottom: none;
+}
+
+.backup-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: 'Menlo', monospace;
+}
 
 .logout-section { text-align: center; }
 </style>

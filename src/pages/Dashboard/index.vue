@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { getDb } from '../../utils/db'
 import { formatDate, TASK_STATUS_MAP, type Task } from '../../utils/task'
 import { useAppStore } from '../../stores'
+import YearHeatmap from '../../components/YearHeatmap.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -207,6 +208,11 @@ onMounted(() => {
       </div>
     </div>
 
+    <!-- Year Heatmap -->
+    <div class="section">
+      <YearHeatmap :tasks="tasks" />
+    </div>
+
     <!-- Recent Tasks -->
     <div class="section">
       <h2>📋 最近任务</h2>
@@ -229,7 +235,10 @@ onMounted(() => {
 
 /* Welcome Card */
 .welcome-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(102,126,234,0.9) 0%, rgba(118,75,162,0.9) 100%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: var(--radius-lg);
   padding: 28px 32px;
   color: #fff;
@@ -237,7 +246,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   margin-bottom: 20px;
-  box-shadow: 0 8px 24px rgba(102,126,234,0.3);
+  box-shadow: 0 8px 32px rgba(102,126,234,0.3);
 }
 
 .welcome-left { display: flex; gap: 20px; align-items: center; }

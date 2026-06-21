@@ -9,6 +9,8 @@ export const useAppStore = defineStore('app', () => {
   const currentUser = ref<User | null>(null)
   const isDark = ref(false)
   const sidebarCollapsed = ref(false)
+  const isUnlocked = ref(false)
+  const lockPasswordHash = ref('')
 
   async function init(user: User) {
     currentUser.value = user
@@ -34,5 +36,19 @@ export const useAppStore = defineStore('app', () => {
     currentUser.value = { ...currentUser.value, ...updates }
   }
 
-  return { currentUser, isDark, sidebarCollapsed, init, toggleDark, toggleSidebar, updateProfile }
+  function setLock(hash: string) {
+    lockPasswordHash.value = hash
+    isUnlocked.value = true
+  }
+
+  function unlock() {
+    isUnlocked.value = true
+  }
+
+  function clearLock() {
+    lockPasswordHash.value = ''
+    isUnlocked.value = true
+  }
+
+  return { currentUser, isDark, sidebarCollapsed, isUnlocked, lockPasswordHash, init, toggleDark, toggleSidebar, updateProfile, setLock, unlock, clearLock }
 })

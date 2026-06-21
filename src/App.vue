@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores'
-import { getDb } from './utils/db'
+import { getDb, getSetting, saveSetting } from './utils/db'
+import LockScreen from './components/LockScreen.vue'
 
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
+const showLockScreen = ref(false)
+const lockMode = ref<'set' | 'verify'>('verify')
+const isInitialized = ref(false)
 
 const menuItems = [
   { path: '/dashboard', label: '仪表盘', icon: '📊' },
@@ -16,6 +20,20 @@ const menuItems = [
   { path: '/my', label: '我的', icon: '👤' },
   { path: '/settings', label: '设置', icon: '⚙️' },
 ]
+
+async function handleLockUnlock(hash: string) {
+  if (lockMode.value === 'set') {
+    await saveSetting('lock_password', hash)
+    appStore.setLock(hash)
+  } else {
+    if (hash === appStore.lockPasswordHash) {
+      appStore.unlock()
+    } else {
+      return
+    }
+  }
+  showLockScreen.value = false
+}
 
 onMounted(async () => {
   const db = await getDb()
@@ -27,11 +45,28 @@ onMounted(async () => {
     users = await db.select('SELECT * FROM users LIMIT 1')
   }
   await appStore.init(users[0])
+
+  const lockHash = await getSetting('lock_password', '')
+  if (lockHash) {
+    appStore.lockPasswordHash = lockHash
+    lockMode.value = 'verify'
+    showLockScreen.value = true
+    appStore.isUnlocked = false
+  } else {
+    appStore.isUnlocked = true
+  }
+
+  isInitialized.value = true
 })
 </script>
 
 <template>
-  <div class="layout">
+  <LockScreen
+    v-if="showLockScreen"
+    :mode="lockMode"
+    @unlock="handleLockUnlock"
+  />
+  <div class="layout" v-if="isInitialized && appStore.isUnlocked">
     <aside class="sidebar" :class="{ collapsed: appStore.sidebarCollapsed }">
       <div class="sidebar-header">
         <div class="user-info" @click="router.push('/settings')">
