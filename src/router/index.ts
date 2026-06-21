@@ -2,7 +2,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
-  { path: '/login', name: 'Login', component: () => import('../pages/Login/index.vue') },
   { path: '/dashboard', name: 'Dashboard', component: () => import('../pages/Dashboard/index.vue') },
   { path: '/work-task', name: 'WorkTask', component: () => import('../pages/WorkTask/index.vue') },
   { path: '/wechat-editor', name: 'WechatEditor', component: () => import('../pages/WechatEditor/index.vue') },

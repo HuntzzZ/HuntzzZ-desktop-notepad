@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, watch } from 'vue'
+import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from './stores'
-import { getUser } from './utils/db'
+import { getDb } from './utils/db'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,35 +17,21 @@ const menuItems = [
   { path: '/settings', label: '设置', icon: '⚙️' },
 ]
 
-// Auth guard
-watch(() => route.path, (path) => {
-  if (!appStore.isLoggedIn && path !== '/login') {
-    router.replace('/login')
-  }
-}, { immediate: true })
-
 onMounted(async () => {
-  // Try auto-login
-  const savedUserId = localStorage.getItem('currentUserId')
-  if (savedUserId) {
-    const user = await getUser(Number(savedUserId))
-    if (user) {
-      await appStore.init(user)
-      if (route.path === '/login') {
-        router.replace('/dashboard')
-      }
-      return
-    }
+  const db = await getDb()
+  let users = await db.select<{ id: number; username: string; display_name: string; avatar: string; entry_date: string; work_start_time: string; work_end_time: string; theme: string; hitokoto_category: string }[]>(
+    'SELECT * FROM users LIMIT 1'
+  )
+  if (users.length === 0) {
+    await db.execute("INSERT INTO users (username, password_hash, display_name) VALUES ('default', '', '用户')")
+    users = await db.select('SELECT * FROM users LIMIT 1')
   }
-  // No saved user, go to login
-  if (route.path !== '/login') {
-    router.replace('/login')
-  }
+  await appStore.init(users[0])
 })
 </script>
 
 <template>
-  <div class="layout" v-if="route.path !== '/login'">
+  <div class="layout">
     <aside class="sidebar" :class="{ collapsed: appStore.sidebarCollapsed }">
       <div class="sidebar-header">
         <div class="user-info" @click="router.push('/settings')">
@@ -80,7 +66,6 @@ onMounted(async () => {
       <router-view />
     </main>
   </div>
-  <router-view v-else />
 </template>
 
 <style scoped>

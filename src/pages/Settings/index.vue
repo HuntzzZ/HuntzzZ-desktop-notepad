@@ -100,10 +100,6 @@ async function handleImport() {
   input.click()
 }
 
-function handleLogout() {
-  appStore.logout()
-}
-
 // Hitokoto categories
 const hitokotoCategories = [
   { key: '', label: '随机' },
@@ -239,11 +235,6 @@ const hitokotoCategories = [
         <div class="about-row"><span>技术栈</span><span>Tauri 2 + Vue 3 + TypeScript</span></div>
         <div class="about-row"><span>数据存储</span><span>本地 SQLite</span></div>
       </div>
-    </div>
-
-    <!-- Logout -->
-    <div class="section logout-section">
-      <button class="btn danger" @click="handleLogout">🚪 退出登录</button>
     </div>
   </div>
 </template>

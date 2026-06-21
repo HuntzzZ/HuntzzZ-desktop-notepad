@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { updateUser, type User } from '../utils/db'
 
 /**
@@ -9,7 +9,6 @@ export const useAppStore = defineStore('app', () => {
   const currentUser = ref<User | null>(null)
   const isDark = ref(false)
   const sidebarCollapsed = ref(false)
-  const isLoggedIn = computed(() => currentUser.value !== null)
 
   async function init(user: User) {
     currentUser.value = user
@@ -35,10 +34,5 @@ export const useAppStore = defineStore('app', () => {
     currentUser.value = { ...currentUser.value, ...updates }
   }
 
-  function logout() {
-    currentUser.value = null
-    localStorage.removeItem('currentUserId')
-  }
-
-  return { currentUser, isDark, sidebarCollapsed, isLoggedIn, init, toggleDark, toggleSidebar, updateProfile, logout }
+  return { currentUser, isDark, sidebarCollapsed, init, toggleDark, toggleSidebar, updateProfile }
 })
