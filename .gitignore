@@ -28,3 +28,7 @@ src-tauri/target/
 
 # pnpm
 pnpm-workspace.yaml
+
+# AI Agent config
+AGENTS.md
+.mimocode/
