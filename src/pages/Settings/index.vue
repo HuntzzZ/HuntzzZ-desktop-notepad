@@ -33,7 +33,7 @@ const avatarOptions = ['😊', '😎', '🤓', '😇', '🙂', '😄', '🦊', '
 const showAvatarPicker = ref(false)
 
 // About
-const appVersion = ref('0.3.0')
+const appVersion = ref('0.5.0')
 
 // Lock screen
 const lockEnabled = ref(false)
@@ -440,14 +440,21 @@ onMounted(async () => {
 
 <style scoped>
 .settings-page { max-width: 700px; margin: 0 auto; }
-.settings-page h1 { font-size: 24px; margin-bottom: 24px; }
+.settings-page h1 { font-size: 24px; margin-bottom: 28px; }
 
 .section {
-  background: var(--bg-primary); border-radius: var(--radius); padding: 24px;
-  box-shadow: var(--shadow); margin-bottom: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
 }
-.section h2 { font-size: 16px; margin-bottom: 12px; }
-.section-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+
+.section h2 { font-size: 16px; margin-bottom: 16px; }
+.section-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
 
 /* Profile */
 .profile-row { display: flex; align-items: center; gap: 16px; }
